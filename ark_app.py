@@ -34,6 +34,14 @@ features_per_model = {
     'goalkeepers': ['SoT', 'PasTotCmp', 'PasShoAtt', 'Touches', 'AerWon', 'Clr', 'Err']
 }
 
+# Precomputed min and max predictions for each model (should be computed from training data)
+min_max_predictions = {
+    'defenders': {'min': 0.0, 'max': 10.0},
+    'midfielders': {'min': 0.0, 'max': 10.0},
+    'forwards': {'min': 0.0, 'max': 10.653},
+    'goalkeepers': {'min': 0.0, 'max': 14.79},
+}
+
 # Set up Streamlit page configuration
 st.set_page_config(
     page_title="Football Analytics & Performance Prediction",
@@ -88,12 +96,25 @@ def manual_model_testing():
     
     input_values = {}
     for feature in features_per_model[model_key]:
-        input_values[feature] = st.number_input(f"{feature}", value=0.0)
+        input_values[feature] = st.number_input(f"{feature}", value=0, step=1, format="%d")
     
     if st.button("Predict Performance"):
         input_df = pd.DataFrame([input_values])
         prediction = model.predict(input_df)[0]
+        
+        # Get precomputed min and max for the selected model
+        min_pred = min_max_predictions[model_key]['min']
+        max_pred = min_max_predictions[model_key]['max']
+        
+        # Compute scaled percentage
+        if max_pred > min_pred:
+            scaled_prediction = ((prediction - min_pred) / (max_pred - min_pred)) * 100
+        else:
+            scaled_prediction = 50.0
+        
+        # Display both raw and scaled predictions
         st.success(f"Predicted Performance Score: {prediction:.2f}")
+        st.success(f"Scaled Performance Percentage: {scaled_prediction:.2f}%")
 
 # Function for exploratory analysis
 def exploratory_analysis(df):
