@@ -6,6 +6,7 @@ import joblib
 import os
 import csv
 import numpy as np
+import plotly.express as px
 
 # Load models at app initialization
 models = {
@@ -277,10 +278,101 @@ def batch_prediction(df):
             mime="text/csv"
         )
 
+# **New Function for Player Assessment**
+def player_assessment():
+    """Calculate and visualize detailed player ratings, strengths, and weaknesses in a dashboard-like format."""
+    st.header("Player Assessment")
+    uploaded_file = st.file_uploader("Upload CSV File for Player Assessment:", type=["csv"])
+    if uploaded_file is not None:
+        df = load_data(uploaded_file)
+        if df is not None:
+            # Define required columns for the rating calculation
+            required_columns = ['Touch', 'Drive', 'Pass', 'Shot', 'Header', 'Sprint', 'Power', 'Endurance', 'TT', 'Height']
+            missing_columns = [col for col in required_columns if col not in df.columns]
+            if missing_columns:
+                st.error(f"Missing columns: {', '.join(missing_columns)}")
+            elif 'Name' not in df.columns:
+                st.error("The dataset must include a 'Name' column.")
+            else:
+                # Calculate player ratings using the provided formula
+                df['Player_Rating'] = (
+                    0.15 * df['Touch'] +
+                    0.12 * df['Drive'] +
+                    0.13 * df['Pass'] +
+                    0.15 * df['Shot'] +
+                    0.10 * df['Header'] +
+                    0.10 * df['Sprint'] +
+                    0.08 * df['Power'] +
+                    0.07 * df['Endurance'] +
+                    0.05 * df['TT'] +
+                    0.05 * df['Height']
+                )
+
+                # Player selection dropdown
+                player_name = st.selectbox("Select Player:", df['Name'].unique())
+                player_data = df[df['Name'] == player_name]
+
+                if not player_data.empty:
+                    # Extract player attributes
+                    attributes = player_data[required_columns].iloc[0]
+
+                    # Calculate strengths and weaknesses
+                    strengths = attributes.nlargest(3).index.tolist()
+                    weaknesses = attributes.nsmallest(3).index.tolist()
+
+                    # Dashboard layout using columns
+                    col1, col2 = st.columns([1, 2])
+
+                    with col1:
+                        # Display overall rating
+                        st.subheader(f"Overall Rating")
+                        st.metric(label="Player Rating", value=round(player_data['Player_Rating'].values[0], 2))
+
+                        # Display strengths
+                        st.subheader("Strengths")
+                        for strength in strengths:
+                            st.write(f"- {strength} ({attributes[strength]:.2f})")
+
+                        # Display weaknesses
+                        st.subheader("Weaknesses")
+                        for weakness in weaknesses:
+                            st.write(f"- {weakness} ({attributes[weakness]:.2f})")
+
+                    with col2:
+                        # Radar chart for attributes
+                        fig = px.line_polar(
+                            r=attributes.values,
+                            theta=attributes.index,
+                            line_close=True,
+                            title=f"Attribute Profile for {player_name}"
+                        )
+                        fig.update_traces(fill='toself')
+                        fig.update_layout(
+                            polar=dict(radialaxis=dict(visible=True)),
+                            showlegend=False
+                        )
+                        st.plotly_chart(fig, use_container_width=True)
+
+                else:
+                    st.error("Player not found.")
+                
+                # Optional: Display top 10 players bar chart (retained from original)
+                st.subheader("Top 10 Player Ratings")
+                df_sorted = df.sort_values(by='Player_Rating', ascending=False)
+                top_players = df_sorted.head(10)
+                fig, ax = plt.subplots(figsize=(10, 6))
+                sns.barplot(x='Player_Rating', y='Name', data=top_players, ax=ax, palette='viridis')
+                ax.set_title('Top 10 Player Ratings')
+                ax.set_xlabel('Player Rating')
+                ax.set_ylabel('Player')
+                st.pyplot(fig)
+
+# ... (Rest of your script remains unchanged, just ensure the new import and function are included)
+
 # Main Streamlit App Logic
 st.title("Football Analytics & Performance Prediction")
 st.sidebar.title("Navigation")
-app_mode = st.sidebar.selectbox("Choose a section:", ["About", "Test Model", "Upload & Analyze Data", "Predict Performance"])
+app_mode = st.sidebar.selectbox("Choose a section:", ["About", "Test Model", "Upload & Analyze Data", "Predict Performance", "Player Assessment"])
 
 if app_mode == "About":
     st.header("About This App")
@@ -312,3 +404,6 @@ elif app_mode == "Predict Performance":
             batch_prediction(df)
     else:
         st.info("Please upload a CSV file to proceed.")
+
+elif app_mode == "Player Assessment":
+    player_assessment()
