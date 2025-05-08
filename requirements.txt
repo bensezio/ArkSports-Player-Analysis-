@@ -4,4 +4,5 @@ joblib==1.4.2
 plotly==6.0.1
 scikit-learn==1.6.1
 fpdf==1.7.2
+kaleido==0.2.1
 pandas==2.2.2
